@@ -298,7 +298,7 @@ function ItemSheet({ item, onAdd, onClose }) {
   const unitPrice = item.price + (upgrade ? upPrice : 0);
   const total     = unitPrice * qty;
   const upgLabel  = isAds ? `Upgrade to All Day Saver · ${fmt(SET_PRICE)} total` : `Upgrade to Set Meal · +${fmt(UPGRADE_PRICE)}`;
-  const upgSub    = isAds ? '1 Onigiri + 1 Drink + 1 Side' : 'Add drink + side';
+  const upgSub    = isAds ? '1 Onigiri + 1 Drink + 1 Side · save $0.50!' : 'Add drink + side';
 
   const handleAdd = () => {
     let name = item.name;
