@@ -38,7 +38,7 @@ input  { font-family: inherit; color: #1A1612; }
 <body>
 <div id="root"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
@@ -581,27 +581,29 @@ function CheckoutSheet({ cart, onConfirm }) {
 
 // ─── PAYNOW QR SHEET ─────────────────────────────────────────────────────────
 function PayNowQRSheet({ amount, onSendWhatsApp }) {
-  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!containerRef.current) return;
     setReady(false);
+    containerRef.current.innerHTML = '';
     const qrText = buildPayNowQR('+6590705241', amount);
-    const tryRender = () => {
-      if (!canvasRef.current || !window.QRCode) return;
-      window.QRCode.toCanvas(canvasRef.current, qrText, {
-        width: 256, margin: 2,
-        color: { dark: '#1A1612', light: '#FFFFFF' },
-      }).then(() => setReady(true)).catch(console.error);
-    };
-    // Small delay to ensure canvas is mounted and library is ready
-    const t = setTimeout(tryRender, 100);
-    return () => clearTimeout(t);
+    new window.QRCode(containerRef.current, {
+      text: qrText,
+      width: 256,
+      height: 256,
+      colorDark: '#1A1612',
+      colorLight: '#FFFFFF',
+      correctLevel: window.QRCode.CorrectLevel.M,
+    });
+    setReady(true);
   }, [amount]);
 
   const handleSave = async () => {
-    if (!canvasRef.current) return;
-    const dataUrl = canvasRef.current.toDataURL('image/png');
+    const canvas = containerRef.current && containerRef.current.querySelector('canvas');
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
     try {
       const res  = await fetch(dataUrl);
       const blob = await res.blob();
@@ -612,7 +614,7 @@ function PayNowQRSheet({ amount, onSendWhatsApp }) {
       }
     } catch (_) {}
     const a = document.createElement('a');
-    a.href = canvasRef.current.toDataURL('image/png');
+    a.href = dataUrl;
     a.download = 'paynow-mr-onigiri.png';
     document.body.appendChild(a);
     a.click();
@@ -626,22 +628,14 @@ function PayNowQRSheet({ amount, onSendWhatsApp }) {
         Scan to pay <strong style={{ color:'#1A1612' }}>{fmt(amount)}</strong> to Mr Onigiri @ Funan
       </div>
 
-      {/* QR canvas */}
+      {/* QR container */}
       <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
         <div style={{
           background:'#FFFFFF', padding:16, borderRadius:18,
           border:'1px solid #EDE6DA',
           boxShadow:'0 4px 24px rgba(26,22,18,0.08)',
-          position:'relative',
         }}>
-          <canvas ref={canvasRef} style={{ display:'block', width:220, height:220 }} />
-          {!ready && (
-            <div style={{
-              position:'absolute', inset:0, display:'flex', alignItems:'center',
-              justifyContent:'center', background:'white', borderRadius:10,
-              color:'#7A6D5E', fontSize:13,
-            }}>Generating…</div>
-          )}
+          <div ref={containerRef} style={{ width:256, height:256 }} />
         </div>
       </div>
 
