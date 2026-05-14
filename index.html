@@ -581,22 +581,27 @@ function CheckoutSheet({ cart, onConfirm }) {
 
 // ─── PAYNOW QR SHEET ─────────────────────────────────────────────────────────
 function PayNowQRSheet({ amount, onSendWhatsApp }) {
-  const [dataUrl, setDataUrl] = useState('');
-  const [copied,  setCopied ] = useState(false);
+  const canvasRef = useRef(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    setReady(false);
     const qrText = buildPayNowQR('+6590705241', amount);
-    if (window.QRCode && typeof window.QRCode.toDataURL === 'function') {
-      window.QRCode.toDataURL(qrText, {
-        width: 280, margin: 1,
+    const tryRender = () => {
+      if (!canvasRef.current || !window.QRCode) return;
+      window.QRCode.toCanvas(canvasRef.current, qrText, {
+        width: 256, margin: 2,
         color: { dark: '#1A1612', light: '#FFFFFF' },
-      }, (err, url) => { if (!err) setDataUrl(url); });
-    }
+      }).then(() => setReady(true)).catch(console.error);
+    };
+    // Small delay to ensure canvas is mounted and library is ready
+    const t = setTimeout(tryRender, 100);
+    return () => clearTimeout(t);
   }, [amount]);
 
   const handleSave = async () => {
-    if (!dataUrl) return;
-    // Try Web Share API first (works well on mobile for saving to Photos)
+    if (!canvasRef.current) return;
+    const dataUrl = canvasRef.current.toDataURL('image/png');
     try {
       const res  = await fetch(dataUrl);
       const blob = await res.blob();
@@ -606,9 +611,8 @@ function PayNowQRSheet({ amount, onSendWhatsApp }) {
         return;
       }
     } catch (_) {}
-    // Fallback: trigger download
     const a = document.createElement('a');
-    a.href = dataUrl;
+    a.href = canvasRef.current.toDataURL('image/png');
     a.download = 'paynow-mr-onigiri.png';
     document.body.appendChild(a);
     a.click();
@@ -622,22 +626,22 @@ function PayNowQRSheet({ amount, onSendWhatsApp }) {
         Scan to pay <strong style={{ color:'#1A1612' }}>{fmt(amount)}</strong> to Mr Onigiri @ Funan
       </div>
 
-      {/* QR image */}
+      {/* QR canvas */}
       <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
         <div style={{
           background:'#FFFFFF', padding:16, borderRadius:18,
           border:'1px solid #EDE6DA',
           boxShadow:'0 4px 24px rgba(26,22,18,0.08)',
+          position:'relative',
         }}>
-          {dataUrl
-            ? <img src={dataUrl} width={220} height={220} alt="PayNow QR" style={{ display:'block' }} />
-            : (
-              <div style={{ width:220, height:220, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, color:'#7A6D5E', fontSize:13 }}>
-                <div style={{ width:32, height:32, border:'3px solid #EDE6DA', borderTopColor:'#4c612c', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-                Generating…
-              </div>
-            )
-          }
+          <canvas ref={canvasRef} style={{ display:'block', width:220, height:220 }} />
+          {!ready && (
+            <div style={{
+              position:'absolute', inset:0, display:'flex', alignItems:'center',
+              justifyContent:'center', background:'white', borderRadius:10,
+              color:'#7A6D5E', fontSize:13,
+            }}>Generating…</div>
+          )}
         </div>
       </div>
 
@@ -651,13 +655,13 @@ function PayNowQRSheet({ amount, onSendWhatsApp }) {
       {/* Save button */}
       <button
         onClick={handleSave}
-        disabled={!dataUrl}
+        disabled={!ready}
         style={{
           width:'100%', height:44, marginBottom:12,
-          background: dataUrl ? '#4c612c' : '#E0D8CE',
-          color: dataUrl ? 'white' : '#7A6D5E',
+          background: ready ? '#4c612c' : '#E0D8CE',
+          color: ready ? 'white' : '#7A6D5E',
           border:'none', borderRadius:12,
-          fontWeight:700, fontSize:14, cursor: dataUrl ? 'pointer' : 'default',
+          fontWeight:700, fontSize:14, cursor: ready ? 'pointer' : 'default',
           display:'flex', alignItems:'center', justifyContent:'center', gap:8,
           transition:'background .15s',
         }}
